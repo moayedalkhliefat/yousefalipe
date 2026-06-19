@@ -1,0 +1,2164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IAT – PE Performance Tracker</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        :root {
+            --primary: #1a3a6b;
+            --primary-light: #2557a7;
+            --primary-dark: #0f2347;
+            --accent: #4a90d9;
+            --accent-light: #7ab3e8;
+            --white: #ffffff;
+            --gray-50: #f8fafc;
+            --gray-100: #f1f5f9;
+            --gray-200: #e2e8f0;
+            --gray-300: #cbd5e1;
+            --gray-600: #475569;
+            --gray-700: #334155;
+            --gray-800: #1e293b;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
+            --shadow-lg: 0 10px 25px -3px rgba(0,0,0,0.15);
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: var(--gray-100);
+            color: var(--gray-800);
+            min-height: 100vh;
+        }
+
+        /* HEADER */
+        .header {
+            background: linear-gradient(135deg, var(--primary-dark) 0%, var(--primary) 50%, var(--primary-light) 100%);
+            color: white;
+            padding: 0;
+            box-shadow: var(--shadow-lg);
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+        }
+
+        .header-top {
+            padding: 15px 30px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 1px solid rgba(255,255,255,0.15);
+        }
+
+        .school-info h1 {
+            font-size: 1.3rem;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+        }
+
+        .school-info p {
+            font-size: 0.8rem;
+            opacity: 0.8;
+            margin-top: 2px;
+        }
+
+        .header-badge {
+            background: rgba(255,255,255,0.15);
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,0.2);
+        }
+
+        .nav {
+            display: flex;
+            padding: 0 30px;
+            gap: 5px;
+        }
+
+        .nav-btn {
+            background: transparent;
+            color: rgba(255,255,255,0.8);
+            border: none;
+            padding: 14px 20px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            font-weight: 500;
+            transition: all 0.3s;
+            border-bottom: 3px solid transparent;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .nav-btn:hover { color: white; background: rgba(255,255,255,0.1); }
+        .nav-btn.active { color: white; border-bottom-color: var(--accent-light); background: rgba(255,255,255,0.1); }
+
+        /* MAIN CONTENT */
+        .main { padding: 30px; max-width: 1400px; margin: 0 auto; }
+
+        .page { display: none; }
+        .page.active { display: block; }
+
+        /* CARDS */
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 25px;
+            box-shadow: var(--shadow);
+            margin-bottom: 25px;
+        }
+
+        .card-title {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: var(--primary);
+            margin-bottom: 20px;
+            padding-bottom: 12px;
+            border-bottom: 2px solid var(--gray-100);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        /* STATS GRID */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 25px;
+        }
+
+        .stat-card {
+            background: white;
+            border-radius: 12px;
+            padding: 22px;
+            box-shadow: var(--shadow);
+            border-left: 4px solid var(--accent);
+            transition: transform 0.2s;
+        }
+
+        .stat-card:hover { transform: translateY(-2px); }
+        .stat-card.green { border-left-color: var(--success); }
+        .stat-card.orange { border-left-color: var(--warning); }
+        .stat-card.red { border-left-color: var(--danger); }
+
+        .stat-label { font-size: 0.8rem; color: var(--gray-600); font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px; }
+        .stat-value { font-size: 2rem; font-weight: 800; color: var(--primary); margin: 8px 0 4px; }
+        .stat-sub { font-size: 0.8rem; color: var(--gray-600); }
+
+        /* FORMS */
+        .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; }
+        
+        .form-group { display: flex; flex-direction: column; gap: 6px; }
+        
+        .form-group label { font-size: 0.85rem; font-weight: 600; color: var(--gray-700); }
+        
+        .form-group input, .form-group select {
+            padding: 10px 14px;
+            border: 2px solid var(--gray-200);
+            border-radius: 8px;
+            font-size: 0.9rem;
+            transition: border-color 0.3s;
+            background: white;
+        }
+
+        .form-group input:focus, .form-group select:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
+
+        /* BUTTONS */
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            font-weight: 600;
+            transition: all 0.3s;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-primary { background: var(--primary); color: white; }
+        .btn-primary:hover { background: var(--primary-light); transform: translateY(-1px); box-shadow: var(--shadow); }
+
+        .btn-success { background: var(--success); color: white; }
+        .btn-success:hover { background: #059669; transform: translateY(-1px); }
+
+        .btn-warning { background: var(--warning); color: white; }
+        .btn-warning:hover { background: #d97706; }
+
+        .btn-danger { background: var(--danger); color: white; }
+        .btn-danger:hover { background: #dc2626; }
+
+        .btn-outline {
+            background: transparent;
+            color: var(--primary);
+            border: 2px solid var(--primary);
+        }
+        .btn-outline:hover { background: var(--primary); color: white; }
+
+        .btn-sm { padding: 6px 12px; font-size: 0.8rem; }
+
+        .btn-group { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 15px; }
+
+        /* TABLES */
+        .table-container { overflow-x: auto; border-radius: 8px; border: 1px solid var(--gray-200); }
+
+        table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+
+        thead { background: var(--primary); color: white; }
+        thead th { padding: 12px 15px; text-align: left; font-weight: 600; white-space: nowrap; }
+
+        tbody tr { border-bottom: 1px solid var(--gray-100); transition: background 0.2s; }
+        tbody tr:hover { background: var(--gray-50); }
+        tbody td { padding: 11px 15px; }
+
+        .badge {
+            display: inline-block;
+            padding: 3px 10px;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+
+        .badge-blue { background: #dbeafe; color: #1d4ed8; }
+        .badge-green { background: #d1fae5; color: #065f46; }
+        .badge-orange { background: #fef3c7; color: #92400e; }
+        .badge-red { background: #fee2e2; color: #991b1b; }
+
+        /* CLASS GRID */
+        .classes-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 20px;
+        }
+
+        .class-card {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: var(--shadow);
+            border-top: 4px solid var(--primary);
+            transition: all 0.3s;
+            cursor: pointer;
+        }
+
+        .class-card:hover { transform: translateY(-3px); box-shadow: var(--shadow-lg); }
+
+        .class-card-title { font-size: 1.1rem; font-weight: 700; color: var(--primary); margin-bottom: 12px; }
+
+        .class-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 12px 0; }
+
+        .class-stat { text-align: center; padding: 8px; background: var(--gray-50); border-radius: 8px; }
+        .class-stat-val { font-size: 1.3rem; font-weight: 700; color: var(--primary); }
+        .class-stat-lbl { font-size: 0.7rem; color: var(--gray-600); }
+
+        /* MODAL */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 2000;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .modal-overlay.active { display: flex; }
+
+        .modal {
+            background: white;
+            border-radius: 16px;
+            padding: 30px;
+            width: 100%;
+            max-width: 900px;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: var(--shadow-lg);
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 25px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid var(--gray-100);
+        }
+
+        .modal-title { font-size: 1.2rem; font-weight: 700; color: var(--primary); }
+
+        .modal-close {
+            background: var(--gray-100);
+            border: none;
+            border-radius: 50%;
+            width: 35px;
+            height: 35px;
+            cursor: pointer;
+            font-size: 1.1rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.2s;
+        }
+
+        .modal-close:hover { background: var(--gray-200); }
+
+        /* CHART CONTAINER */
+        .chart-container { position: relative; height: 350px; margin-top: 15px; }
+
+        .chart-toggle { display: flex; gap: 10px; margin-bottom: 15px; flex-wrap: wrap; align-items: center; }
+
+        /* IMPORT ZONE */
+        .import-zone {
+            border: 2px dashed var(--gray-300);
+            border-radius: 12px;
+            padding: 40px;
+            text-align: center;
+            transition: all 0.3s;
+            cursor: pointer;
+            margin: 15px 0;
+        }
+
+        .import-zone:hover, .import-zone.drag-over {
+            border-color: var(--accent);
+            background: #eff6ff;
+        }
+
+        .import-zone-icon { font-size: 3rem; margin-bottom: 10px; }
+        .import-zone p { color: var(--gray-600); font-size: 0.9rem; }
+        .import-zone strong { color: var(--primary); }
+
+        /* PROGRESS BAR */
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: var(--gray-200);
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--primary), var(--accent));
+            border-radius: 4px;
+            transition: width 0.5s;
+        }
+
+        /* ALERTS */
+        .alert {
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            font-size: 0.9rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .alert-success { background: #d1fae5; color: #065f46; border: 1px solid #a7f3d0; }
+        .alert-error { background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; }
+        .alert-info { background: #dbeafe; color: #1e40af; border: 1px solid #93c5fd; }
+
+        /* SCORE INPUT */
+        .score-input-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 12px;
+            margin: 15px 0;
+        }
+
+        .score-field { display: flex; flex-direction: column; gap: 5px; }
+        .score-field label { font-size: 0.8rem; font-weight: 600; color: var(--gray-700); }
+        .score-field input {
+            padding: 8px 12px;
+            border: 2px solid var(--gray-200);
+            border-radius: 8px;
+            font-size: 0.95rem;
+            font-weight: 600;
+            text-align: center;
+            transition: border-color 0.3s;
+        }
+        .score-field input:focus { outline: none; border-color: var(--accent); }
+        .score-field .max-hint { font-size: 0.7rem; color: var(--gray-600); text-align: center; }
+
+        .computed-field {
+            padding: 8px 12px;
+            background: var(--gray-50);
+            border: 2px solid var(--gray-200);
+            border-radius: 8px;
+            font-size: 0.95rem;
+            font-weight: 700;
+            text-align: center;
+            color: var(--primary);
+        }
+
+        /* SECTION DIVIDER */
+        .section-divider {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin: 20px 0;
+        }
+
+        .section-divider span {
+            font-weight: 700;
+            color: var(--primary);
+            white-space: nowrap;
+            font-size: 0.9rem;
+            background: #dbeafe;
+            padding: 5px 12px;
+            border-radius: 20px;
+        }
+
+        .section-divider hr { flex: 1; border: none; border-top: 2px solid var(--gray-200); }
+
+        /* FOOTER */
+        .footer {
+            text-align: center;
+            padding: 20px;
+            color: var(--gray-600);
+            font-size: 0.8rem;
+            border-top: 1px solid var(--gray-200);
+            margin-top: 40px;
+        }
+
+        /* RESPONSIVE */
+        @media (max-width: 768px) {
+            .main { padding: 15px; }
+            .header-top { padding: 12px 15px; flex-direction: column; gap: 10px; text-align: center; }
+            .nav { padding: 0 10px; overflow-x: auto; }
+            .nav-btn { padding: 12px 14px; font-size: 0.8rem; }
+            .stats-grid { grid-template-columns: repeat(2, 1fr); }
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: var(--gray-600);
+        }
+
+        .empty-state-icon { font-size: 4rem; margin-bottom: 15px; }
+        .empty-state h3 { font-size: 1.2rem; font-weight: 600; margin-bottom: 8px; color: var(--gray-700); }
+
+        .search-bar {
+            padding: 10px 16px;
+            border: 2px solid var(--gray-200);
+            border-radius: 8px;
+            font-size: 0.9rem;
+            width: 100%;
+            max-width: 300px;
+            transition: border-color 0.3s;
+        }
+        .search-bar:focus { outline: none; border-color: var(--accent); }
+
+        .toolbar { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-bottom: 20px; }
+
+        .tab-group { display: flex; border-bottom: 2px solid var(--gray-200); margin-bottom: 20px; }
+        .tab-btn {
+            padding: 10px 20px;
+            border: none;
+            background: transparent;
+            cursor: pointer;
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: var(--gray-600);
+            border-bottom: 3px solid transparent;
+            margin-bottom: -2px;
+            transition: all 0.2s;
+        }
+        .tab-btn.active { color: var(--primary); border-bottom-color: var(--primary); }
+        .tab-btn:hover { color: var(--primary); }
+
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+
+        /* Improvement color coding */
+        .imp-positive { color: var(--success); font-weight: 700; }
+        .imp-negative { color: var(--danger); font-weight: 700; }
+        .imp-neutral { color: var(--gray-600); font-weight: 700; }
+    </style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="header">
+    <div class="header-top">
+        <div class="school-info">
+            <h1>🏫 IAT – Institute of Applied Technology - AQB</h1>
+            <p>Physical Education Performance Tracker | Built by Yousef Ali Ababneh</p>
+        </div>
+        <div class="header-badge">📊 PE Management System</div>
+    </div>
+    <nav class="nav">
+        <button class="nav-btn active" onclick="showPage('dashboard')">🏠 Dashboard</button>
+        <button class="nav-btn" onclick="showPage('classes')">📚 Classes</button>
+        <button class="nav-btn" onclick="showPage('students')">👥 Students</button>
+        <button class="nav-btn" onclick="showPage('reports')">📊 Reports</button>
+        <button class="nav-btn" onclick="showPage('export')">📥 Export</button>
+    </nav>
+</div>
+
+<!-- MAIN -->
+<div class="main">
+
+    <!-- ==================== DASHBOARD ==================== -->
+    <div id="page-dashboard" class="page active">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:25px; flex-wrap:wrap; gap:15px;">
+            <div>
+                <h2 style="font-size:1.5rem; color:var(--primary); font-weight:800;">📊 Dashboard Overview</h2>
+                <p style="color:var(--gray-600); font-size:0.9rem;">Welcome back! Here's your PE performance summary.</p>
+            </div>
+        </div>
+
+        <!-- STATS ROW -->
+        <div class="stats-grid" id="dashboard-stats">
+            <div class="stat-card">
+                <div class="stat-label">Total Classes</div>
+                <div class="stat-value" id="stat-classes">0</div>
+                <div class="stat-sub">Active classes</div>
+            </div>
+            <div class="stat-card green">
+                <div class="stat-label">Total Students</div>
+                <div class="stat-value" id="stat-students">0</div>
+                <div class="stat-sub">Enrolled students</div>
+            </div>
+            <div class="stat-card orange">
+                <div class="stat-label">Avg Improvement</div>
+                <div class="stat-value" id="stat-avg-imp">0%</div>
+                <div class="stat-sub">Across all students</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Avg Score (100)</div>
+                <div class="stat-value" id="stat-avg-score">0</div>
+                <div class="stat-sub">Post-test average</div>
+            </div>
+        </div>
+
+        <!-- DASHBOARD CHARTS -->
+        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:20px; margin-bottom:25px;">
+            <div class="card">
+                <div class="card-title">📈 Improvement by Class</div>
+                <div class="chart-toggle">
+                    <button class="btn btn-sm btn-primary" onclick="toggleDashChart('bar')">Bar</button>
+                    <button class="btn btn-sm btn-outline" onclick="toggleDashChart('line')">Line</button>
+                </div>
+                <div class="chart-container">
+                    <canvas id="dashChart1"></canvas>
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-title">🏆 Average Score (out of 100) by Class</div>
+                <div class="chart-toggle">
+                    <button class="btn btn-sm btn-primary" onclick="toggleDashChart2('bar')">Bar</button>
+                    <button class="btn btn-sm btn-outline" onclick="toggleDashChart2('line')">Line</button>
+                </div>
+                <div class="chart-container">
+                    <canvas id="dashChart2"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- CLASS SUMMARY TABLE -->
+        <div class="card">
+            <div class="card-title">📋 Class Performance Summary</div>
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Class</th>
+                            <th>Grade</th>
+                            <th>Students</th>
+                            <th>Avg Pre Total</th>
+                            <th>Avg Post Total</th>
+                            <th>Avg Score/100</th>
+                            <th>Improvement (Num)</th>
+                            <th>Improvement (%)</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="dashboard-table-body">
+                        <tr><td colspan="9" style="text-align:center; padding:30px; color:var(--gray-600);">No classes yet. Add a class to get started!</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== CLASSES ==================== -->
+    <div id="page-classes" class="page">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:25px; flex-wrap:wrap; gap:15px;">
+            <div>
+                <h2 style="font-size:1.5rem; color:var(--primary); font-weight:800;">📚 Classes Management</h2>
+                <p style="color:var(--gray-600); font-size:0.9rem;">Manage your PE classes and sections.</p>
+            </div>
+            <button class="btn btn-primary" onclick="openAddClassModal()">➕ Add New Class</button>
+        </div>
+
+        <div class="classes-grid" id="classes-grid">
+            <div class="empty-state" style="grid-column:1/-1;">
+                <div class="empty-state-icon">📚</div>
+                <h3>No Classes Yet</h3>
+                <p>Click "Add New Class" to create your first class.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== STUDENTS ==================== -->
+    <div id="page-students" class="page">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:25px; flex-wrap:wrap; gap:15px;">
+            <div>
+                <h2 style="font-size:1.5rem; color:var(--primary); font-weight:800;">👥 Students Management</h2>
+                <p style="color:var(--gray-600); font-size:0.9rem;">View and manage all students.</p>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="toolbar">
+                <select id="filter-class" class="form-group" style="padding:10px 14px; border:2px solid var(--gray-200); border-radius:8px; font-size:0.9rem; background:white;" onchange="filterStudents()">
+                    <option value="">All Classes</option>
+                </select>
+                <input type="text" class="search-bar" id="student-search" placeholder="🔍 Search student..." oninput="filterStudents()">
+            </div>
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Student ID</th>
+                            <th>Name</th>
+                            <th>Class</th>
+                            <th>Push Pre</th>
+                            <th>Sit Pre</th>
+                            <th>Squat Pre</th>
+                            <th>Total Pre</th>
+                            <th>Push Post</th>
+                            <th>Sit Post</th>
+                            <th>Squat Post</th>
+                            <th>Total Post</th>
+                            <th>Score/100</th>
+                            <th>Imp (Num)</th>
+                            <th>Imp (%)</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="students-table-body">
+                        <tr><td colspan="16" style="text-align:center; padding:30px; color:var(--gray-600);">No students yet.</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== REPORTS ==================== -->
+    <div id="page-reports" class="page">
+        <div style="margin-bottom:25px;">
+            <h2 style="font-size:1.5rem; color:var(--primary); font-weight:800;">📊 Reports & Analytics</h2>
+            <p style="color:var(--gray-600); font-size:0.9rem;">Detailed performance charts and analysis.</p>
+        </div>
+
+        <div class="tab-group">
+            <button class="tab-btn active" onclick="showTab('tab-overview')">🌍 All Students</button>
+            <button class="tab-btn" onclick="showTab('tab-class')">📚 By Class</button>
+            <button class="tab-btn" onclick="showTab('tab-comparison')">⚖️ Comparison</button>
+        </div>
+
+        <!-- TAB: ALL STUDENTS -->
+        <div id="tab-overview" class="tab-content active">
+            <div class="card">
+                <div class="card-title">📊 Overall Performance - All Students</div>
+                <div class="stats-grid" style="margin-bottom:20px;">
+                    <div class="stat-card">
+                        <div class="stat-label">Total Students</div>
+                        <div class="stat-value" id="rep-total-students">0</div>
+                        <div class="stat-sub">All classes</div>
+                    </div>
+                    <div class="stat-card green">
+                        <div class="stat-label">Avg Improvement</div>
+                        <div class="stat-value" id="rep-avg-imp">0</div>
+                        <div class="stat-sub">Points average</div>
+                    </div>
+                    <div class="stat-card orange">
+                        <div class="stat-label">Avg Improvement %</div>
+                        <div class="stat-value" id="rep-avg-imp-pct">0%</div>
+                        <div class="stat-sub">Percentage average</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">Avg Score/100</div>
+                        <div class="stat-value" id="rep-avg-score100">0</div>
+                        <div class="stat-sub">Post-test</div>
+                    </div>
+                </div>
+                <div class="chart-toggle">
+                    <span style="font-weight:600; color:var(--gray-700);">Chart Type:</span>
+                    <button class="btn btn-sm btn-primary" onclick="toggleOverallChart('bar')">📊 Bar</button>
+                    <button class="btn btn-sm btn-outline" onclick="toggleOverallChart('line')">📈 Line</button>
+                    <span style="font-weight:600; color:var(--gray-700); margin-left:15px;">Show:</span>
+                    <button class="btn btn-sm btn-success" onclick="setOverallChartData('improvement')">Improvement</button>
+                    <button class="btn btn-sm btn-outline" onclick="setOverallChartData('score100')">Score/100</button>
+                    <button class="btn btn-sm btn-outline" onclick="setOverallChartData('pre-post')">Pre vs Post</button>
+                </div>
+                <div class="chart-container" style="height:400px;">
+                    <canvas id="overallChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB: BY CLASS -->
+        <div id="tab-class" class="tab-content">
+            <div class="card">
+                <div class="card-title">📚 Class Performance Details</div>
+                <div class="toolbar">
+                    <select id="report-class-select" onchange="updateClassReport()" style="padding:10px 14px; border:2px solid var(--gray-200); border-radius:8px; font-size:0.9rem; background:white;">
+                        <option value="">Select a Class...</option>
+                    </select>
+                </div>
+                <div id="class-report-content">
+                    <div class="empty-state">
+                        <div class="empty-state-icon">📚</div>
+                        <h3>Select a Class</h3>
+                        <p>Choose a class from the dropdown above.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB: COMPARISON -->
+        <div id="tab-comparison" class="tab-content">
+            <div class="card">
+                <div class="card-title">⚖️ Class Comparison</div>
+                <div class="chart-toggle">
+                    <button class="btn btn-sm btn-primary" onclick="toggleCompChart('bar')">📊 Bar</button>
+                    <button class="btn btn-sm btn-outline" onclick="toggleCompChart('line')">📈 Line</button>
+                </div>
+                <div class="chart-container" style="height:400px;">
+                    <canvas id="comparisonChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== EXPORT ==================== -->
+    <div id="page-export" class="page">
+        <div style="margin-bottom:25px;">
+            <h2 style="font-size:1.5rem; color:var(--primary); font-weight:800;">📥 Export Data</h2>
+            <p style="color:var(--gray-600); font-size:0.9rem;">Export data to Excel for records and reporting.</p>
+        </div>
+
+        <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap:20px;">
+            <!-- Export All -->
+            <div class="card" style="border-top:4px solid var(--primary);">
+                <div class="card-title">🌍 Export All Students</div>
+                <p style="color:var(--gray-600); font-size:0.9rem; margin-bottom:20px;">Download a complete Excel file with all students from all classes including all performance data.</p>
+                <div class="stats-grid" style="grid-template-columns:1fr 1fr; margin-bottom:20px;">
+                    <div class="stat-card" style="padding:15px;">
+                        <div class="stat-label">Students</div>
+                        <div class="stat-value" style="font-size:1.5rem;" id="exp-all-students">0</div>
+                    </div>
+                    <div class="stat-card green" style="padding:15px;">
+                        <div class="stat-label">Classes</div>
+                        <div class="stat-value" style="font-size:1.5rem;" id="exp-all-classes">0</div>
+                    </div>
+                </div>
+                <button class="btn btn-primary" onclick="exportAll()" style="width:100%;">📥 Export All Students</button>
+            </div>
+
+            <!-- Export by Class -->
+            <div class="card" style="border-top:4px solid var(--success);">
+                <div class="card-title">📚 Export by Class</div>
+                <p style="color:var(--gray-600); font-size:0.9rem; margin-bottom:20px;">Download an Excel file for a specific class with all student performance data.</p>
+                <div class="form-group" style="margin-bottom:15px;">
+                    <label>Select Class</label>
+                    <select id="export-class-select" style="padding:10px 14px; border:2px solid var(--gray-200); border-radius:8px; font-size:0.9rem; background:white;">
+                        <option value="">Choose a class...</option>
+                    </select>
+                </div>
+                <button class="btn btn-success" onclick="exportByClass()" style="width:100%;">📥 Export Class</button>
+            </div>
+
+            <!-- Export by Student -->
+            <div class="card" style="border-top:4px solid var(--warning);">
+                <div class="card-title">👤 Export Student Report</div>
+                <p style="color:var(--gray-600); font-size:0.9rem; margin-bottom:20px;">Download a detailed Excel report for a specific student.</p>
+                <div class="form-group" style="margin-bottom:10px;">
+                    <label>Select Class</label>
+                    <select id="export-student-class" onchange="populateExportStudents()" style="padding:10px 14px; border:2px solid var(--gray-200); border-radius:8px; font-size:0.9rem; background:white;">
+                        <option value="">Choose class...</option>
+                    </select>
+                </div>
+                <div class="form-group" style="margin-bottom:15px;">
+                    <label>Select Student</label>
+                    <select id="export-student-select" style="padding:10px 14px; border:2px solid var(--gray-200); border-radius:8px; font-size:0.9rem; background:white;">
+                        <option value="">Choose student...</option>
+                    </select>
+                </div>
+                <button class="btn btn-warning" onclick="exportStudent()" style="width:100%;">📥 Export Student</button>
+            </div>
+        </div>
+
+        <!-- Summary Export -->
+        <div class="card" style="margin-top:20px; border-top:4px solid var(--accent);">
+            <div class="card-title">📋 Export Class Summary Report</div>
+            <p style="color:var(--gray-600); font-size:0.9rem; margin-bottom:20px;">Export a summary sheet showing averages and totals for each class.</p>
+            <button class="btn btn-primary" onclick="exportSummary()">📥 Export Summary Report</button>
+        </div>
+    </div>
+
+</div>
+
+<!-- FOOTER -->
+<div class="footer">
+    <p>🏫 IAT – Institute of Applied Technology - AQB | PE Performance Tracker | Built by <strong>Yousef Ali Ababneh</strong></p>
+</div>
+
+<!-- ==================== MODALS ==================== -->
+
+<!-- Add Class Modal -->
+<div class="modal-overlay" id="modal-add-class">
+    <div class="modal" style="max-width:500px;">
+        <div class="modal-header">
+            <div class="modal-title">➕ Add New Class</div>
+            <button class="modal-close" onclick="closeModal('modal-add-class')">✕</button>
+        </div>
+        <div class="form-grid" style="grid-template-columns:1fr 1fr 1fr;">
+            <div class="form-group">
+                <label>Grade Level</label>
+                <select id="class-grade">
+                    <option value="6">Grade 6</option>
+                    <option value="7">Grade 7</option>
+                    <option value="8">Grade 8</option>
+                    <option value="9">Grade 9</option>
+                    <option value="10" selected>Grade 10</option>
+                    <option value="11">Grade 11</option>
+                    <option value="12">Grade 12</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Section Number</label>
+                <input type="number" id="class-section" placeholder="e.g. 1" min="1" value="1">
+            </div>
+            <div class="form-group">
+                <label>Academic Year</label>
+                <input type="text" id="class-year" placeholder="2024-2025" value="2024-2025">
+            </div>
+        </div>
+        <div class="form-group" style="margin-top:15px;">
+            <label>Preview Name</label>
+            <div style="padding:12px; background:var(--gray-50); border-radius:8px; font-weight:700; color:var(--primary); font-size:1.1rem;" id="class-name-preview">Grade 10 - Section 1</div>
+        </div>
+        <div class="btn-group" style="margin-top:20px;">
+            <button class="btn btn-primary" onclick="addClass()">✅ Add Class</button>
+            <button class="btn btn-outline" onclick="closeModal('modal-add-class')">Cancel</button>
+        </div>
+    </div>
+</div>
+
+<!-- Class Detail Modal -->
+<div class="modal-overlay" id="modal-class-detail">
+    <div class="modal" style="max-width:1100px;">
+        <div class="modal-header">
+            <div class="modal-title" id="class-detail-title">Class Details</div>
+            <button class="modal-close" onclick="closeModal('modal-class-detail')">✕</button>
+        </div>
+
+        <div class="tab-group">
+            <button class="tab-btn active" onclick="showClassTab('students-tab')">👥 Students</button>
+            <button class="tab-btn" onclick="showClassTab('import-tab')">📤 Import</button>
+            <button class="tab-btn" onclick="showClassTab('stats-tab')">📊 Statistics</button>
+        </div>
+
+        <!-- Students Tab -->
+        <div id="students-tab" class="tab-content active">
+            <div class="toolbar">
+                <button class="btn btn-primary btn-sm" onclick="openAddStudentForm()">➕ Add Student</button>
+                <input type="text" class="search-bar" id="modal-search" placeholder="🔍 Search..." oninput="filterModalStudents()" style="max-width:200px;">
+            </div>
+
+            <!-- Add Student Form -->
+            <div id="add-student-form" style="display:none; background:var(--gray-50); padding:20px; border-radius:12px; margin-bottom:20px;">
+                <div style="font-weight:700; color:var(--primary); margin-bottom:15px;">👤 Add New Student</div>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Student Name</label>
+                        <input type="text" id="new-student-name" placeholder="Full name">
+                    </div>
+                    <div class="form-group">
+                        <label>Student ID</label>
+                        <input type="text" id="new-student-id" placeholder="ID number">
+                    </div>
+                </div>
+                <div class="btn-group" style="margin-top:10px;">
+                    <button class="btn btn-success btn-sm" onclick="addSingleStudent()">✅ Add</button>
+                    <button class="btn btn-outline btn-sm" onclick="document.getElementById('add-student-form').style.display='none'">Cancel</button>
+                </div>
+            </div>
+
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>ID</th>
+                            <th>Name</th>
+                            <th>Push Pre</th>
+                            <th>Sit Pre</th>
+                            <th>Squat Pre</th>
+                            <th>Total Pre</th>
+                            <th>Push Post</th>
+                            <th>Sit Post</th>
+                            <th>Squat Post</th>
+                            <th>Total Post</th>
+                            <th>Score/100</th>
+                            <th>Imp</th>
+                            <th>Imp%</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="class-students-tbody"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Import Tab -->
+        <div id="import-tab" class="tab-content">
+            <div class="alert alert-info">
+                ℹ️ Excel file format: <strong>Column A</strong> = Student Names, <strong>Column B</strong> = Student IDs. First row should be header (will be skipped).
+            </div>
+            <div class="import-zone" id="import-drop-zone" onclick="document.getElementById('excel-file-input').click()">
+                <div class="import-zone-icon">📂</div>
+                <p><strong>Click to browse</strong> or drag & drop your Excel file here</p>
+                <p style="margin-top:5px; font-size:0.8rem;">Supports .xlsx and .xls files</p>
+            </div>
+            <input type="file" id="excel-file-input" accept=".xlsx,.xls" style="display:none;" onchange="handleExcelImport(event)">
+            <div id="import-preview" style="display:none;">
+                <div class="alert alert-success" id="import-success-msg"></div>
+                <div class="table-container">
+                    <table>
+                        <thead><tr><th>#</th><th>Name</th><th>ID</th><th>Status</th></tr></thead>
+                        <tbody id="import-preview-tbody"></tbody>
+                    </table>
+                </div>
+                <div class="btn-group" style="margin-top:15px;">
+                    <button class="btn btn-success" onclick="confirmImport()">✅ Confirm Import</button>
+                    <button class="btn btn-outline" onclick="cancelImport()">Cancel</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Stats Tab -->
+        <div id="stats-tab" class="tab-content">
+            <div class="stats-grid" id="class-stats-grid"></div>
+            <div class="chart-toggle">
+                <button class="btn btn-sm btn-primary" onclick="toggleClassChart('bar')">📊 Bar</button>
+                <button class="btn btn-sm btn-outline" onclick="toggleClassChart('line')">📈 Line</button>
+            </div>
+            <div class="chart-container">
+                <canvas id="classChart"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Student Scores Modal -->
+<div class="modal-overlay" id="modal-edit-scores">
+    <div class="modal" style="max-width:650px;">
+        <div class="modal-header">
+            <div class="modal-title" id="edit-student-title">✏️ Edit Student Scores</div>
+            <button class="modal-close" onclick="closeModal('modal-edit-scores')">✕</button>
+        </div>
+
+        <input type="hidden" id="edit-class-id">
+        <input type="hidden" id="edit-student-id-hidden">
+
+        <div class="section-divider">
+            <hr><span>📋 PRE-TEST Scores</span><hr>
+        </div>
+        <div class="score-input-grid">
+            <div class="score-field">
+                <label>Push-ups (Pre)</label>
+                <input type="number" id="edit-push-pre" min="0" max="10" oninput="updateTotals()">
+                <div class="max-hint">Max: 10</div>
+            </div>
+            <div class="score-field">
+                <label>Sit-ups (Pre)</label>
+                <input type="number" id="edit-sit-pre" min="0" max="30" oninput="updateTotals()">
+                <div class="max-hint">Max: 30</div>
+            </div>
+            <div class="score-field">
+                <label>Squats (Pre)</label>
+                <input type="number" id="edit-squat-pre" min="0" max="10" oninput="updateTotals()">
+                <div class="max-hint">Max: 10</div>
+            </div>
+            <div class="score-field">
+                <label>Total (Pre)</label>
+                <div class="computed-field" id="edit-total-pre">0</div>
+            </div>
+        </div>
+
+        <div class="section-divider">
+            <hr><span>🏆 POST-TEST Scores</span><hr>
+        </div>
+        <div class="score-input-grid">
+            <div class="score-field">
+                <label>Push-ups (Post)</label>
+                <input type="number" id="edit-push-post" min="0" max="10" oninput="updateTotals()">
+                <div class="max-hint">Max: 10</div>
+            </div>
+            <div class="score-field">
+                <label>Sit-ups (Post)</label>
+                <input type="number" id="edit-sit-post" min="0" max="30" oninput="updateTotals()">
+                <div class="max-hint">Max: 30</div>
+            </div>
+            <div class="score-field">
+                <label>Squats (Post)</label>
+                <input type="number" id="edit-squat-post" min="0" max="10" oninput="updateTotals()">
+                <div class="max-hint">Max: 10</div>
+            </div>
+            <div class="score-field">
+                <label>Total (Post)</label>
+                <div class="computed-field" id="edit-total-post">0</div>
+            </div>
+        </div>
+
+        <div class="section-divider">
+            <hr><span>📊 Results</span><hr>
+        </div>
+        <div class="score-input-grid">
+            <div class="score-field">
+                <label>Score / 100</label>
+                <div class="computed-field" id="edit-score100">0</div>
+            </div>
+            <div class="score-field">
+                <label>Improvement (Num)</label>
+                <div class="computed-field" id="edit-imp-num">0</div>
+            </div>
+            <div class="score-field">
+                <label>Improvement (%)</label>
+                <div class="computed-field" id="edit-imp-pct">0%</div>
+            </div>
+        </div>
+
+        <div class="btn-group" style="margin-top:20px;">
+            <button class="btn btn-primary" onclick="saveStudentScores()">💾 Save Scores</button>
+            <button class="btn btn-outline" onclick="closeModal('modal-edit-scores')">Cancel</button>
+        </div>
+    </div>
+</div>
+
+<script>
+// =====================================================
+//  DATA STORE
+// =====================================================
+let appData = {
+    classes: [],
+    nextClassId: 1,
+    nextStudentId: 1
+};
+
+// Load from localStorage
+function loadData() {
+    const saved = localStorage.getItem('pe-tracker-data');
+    if (saved) {
+        appData = JSON.parse(saved);
+    }
+}
+
+function saveData() {
+    localStorage.setItem('pe-tracker-data', JSON.stringify(appData));
+}
+
+// =====================================================
+//  NAVIGATION
+// =====================================================
+function showPage(page) {
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById('page-' + page).classList.add('active');
+    event.currentTarget.classList.add('active');
+
+    if (page === 'dashboard') updateDashboard();
+    if (page === 'students') updateStudentsPage();
+    if (page === 'reports') updateReports();
+    if (page === 'export') updateExportPage();
+}
+
+function showTab(tabId) {
+    const parent = document.getElementById(tabId).closest('.page, .modal');
+    parent.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+    parent.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById(tabId).classList.add('active');
+    event.currentTarget.classList.add('active');
+    if (tabId === 'tab-comparison') updateComparisonChart();
+}
+
+function showClassTab(tabId) {
+    document.querySelectorAll('#modal-class-detail .tab-content').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('#modal-class-detail .tab-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById(tabId).classList.add('active');
+    event.currentTarget.classList.add('active');
+    if (tabId === 'stats-tab') updateClassStatsTab();
+}
+
+// =====================================================
+//  MODALS
+// =====================================================
+function openModal(id) { document.getElementById(id).classList.add('active'); }
+function closeModal(id) { document.getElementById(id).classList.remove('active'); }
+
+// =====================================================
+//  CLASS MANAGEMENT
+// =====================================================
+function openAddClassModal() {
+    openModal('modal-add-class');
+    updateClassNamePreview();
+    document.getElementById('class-grade').addEventListener('input', updateClassNamePreview);
+    document.getElementById('class-section').addEventListener('input', updateClassNamePreview);
+}
+
+function updateClassNamePreview() {
+    const grade = document.getElementById('class-grade').value;
+    const section = document.getElementById('class-section').value;
+    document.getElementById('class-name-preview').textContent = `Grade ${grade} - Section ${section || '?'}`;
+}
+
+function addClass() {
+    const grade = document.getElementById('class-grade').value;
+    const section = document.getElementById('class-section').value;
+    const year = document.getElementById('class-year').value;
+
+    if (!section) { alert('Please enter a section number.'); return; }
+
+    const name = `Grade ${grade} - Section ${section}`;
+    const exists = appData.classes.find(c => c.name === name && c.year === year);
+    if (exists) { alert('This class already exists!'); return; }
+
+    const newClass = {
+        id: appData.nextClassId++,
+        name: name,
+        grade: parseInt(grade),
+        section: parseInt(section),
+        year: year,
+        students: []
+    };
+
+    appData.classes.push(newClass);
+    saveData();
+    closeModal('modal-add-class');
+    renderClasses();
+    updateDashboard();
+}
+
+function renderClasses() {
+    const grid = document.getElementById('classes-grid');
+    if (appData.classes.length === 0) {
+        grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1;"><div class="empty-state-icon">📚</div><h3>No Classes Yet</h3><p>Click "Add New Class" to create your first class.</p></div>`;
+        return;
+    }
+
+    grid.innerHTML = appData.classes.map(cls => {
+        const stats = getClassStats(cls);
+        return `
+        <div class="class-card" onclick="openClassDetail(${cls.id})">
+            <div class="class-card-title">📚 ${cls.name}</div>
+            <div style="font-size:0.8rem; color:var(--gray-600); margin-bottom:12px;">📅 ${cls.year}</div>
+            <div class="class-stats">
+                <div class="class-stat">
+                    <div class="class-stat-val">${cls.students.length}</div>
+                    <div class="class-stat-lbl">Students</div>
+                </div>
+                <div class="class-stat">
+                    <div class="class-stat-val">${stats.avgScore100.toFixed(1)}</div>
+                    <div class="class-stat-lbl">Avg Score/100</div>
+                </div>
+                <div class="class-stat">
+                    <div class="class-stat-val">${stats.avgImpNum.toFixed(1)}</div>
+                    <div class="class-stat-lbl">Avg Imp (pts)</div>
+                </div>
+                <div class="class-stat">
+                    <div class="class-stat-val">${stats.avgImpPct.toFixed(1)}%</div>
+                    <div class="class-stat-lbl">Avg Imp %</div>
+                </div>
+            </div>
+            <div style="margin-top:12px;">
+                <div style="display:flex; justify-content:space-between; font-size:0.75rem; color:var(--gray-600); margin-bottom:5px;">
+                    <span>Post-test completion</span>
+                    <span>${stats.completedPost}/${cls.students.length}</span>
+                </div>
+                <div class="progress-bar">
+                    <div class="progress-fill" style="width:${cls.students.length > 0 ? (stats.completedPost/cls.students.length*100) : 0}%"></div>
+                </div>
+            </div>
+            <div class="btn-group" style="margin-top:15px;" onclick="event.stopPropagation()">
+                <button class="btn btn-primary btn-sm" onclick="openClassDetail(${cls.id})">📂 Open</button>
+                <button class="btn btn-danger btn-sm" onclick="deleteClass(${cls.id})">🗑️ Delete</button>
+            </div>
+        </div>`;
+    }).join('');
+}
+
+function deleteClass(classId) {
+    if (!confirm('Are you sure you want to delete this class and all its students?')) return;
+    appData.classes = appData.classes.filter(c => c.id !== classId);
+    saveData();
+    renderClasses();
+    updateDashboard();
+}
+
+// =====================================================
+//  CLASS STATS CALCULATION
+// =====================================================
+function getClassStats(cls) {
+    const students = cls.students;
+    const withPost = students.filter(s => s.pushPost !== null && s.pushPost !== undefined);
+    const withPre = students.filter(s => s.pushPre !== null && s.pushPre !== undefined);
+
+    const avgPreTotal = withPre.length > 0 ? withPre.reduce((a, s) => a + getTotal(s, 'pre'), 0) / withPre.length : 0;
+    const avgPostTotal = withPost.length > 0 ? withPost.reduce((a, s) => a + getTotal(s, 'post'), 0) / withPost.length : 0;
+    const avgScore100 = withPost.length > 0 ? withPost.reduce((a, s) => a + getScore100(s), 0) / withPost.length : 0;
+    const avgImpNum = withPost.length > 0 ? withPost.reduce((a, s) => a + getImpNum(s), 0) / withPost.length : 0;
+    const avgImpPct = withPost.length > 0 ? withPost.reduce((a, s) => a + getImpPct(s), 0) / withPost.length : 0;
+
+    return {
+        avgPreTotal,
+        avgPostTotal,
+        avgScore100,
+        avgImpNum,
+        avgImpPct,
+        completedPost: withPost.length,
+        completedPre: withPre.length
+    };
+}
+
+function getTotal(s, type) {
+    if (type === 'pre') {
+        return (s.pushPre || 0) + (s.sitPre || 0) + (s.squatPre || 0);
+    } else {
+        return (s.pushPost || 0) + (s.sitPost || 0) + (s.squatPost || 0);
+    }
+}
+
+function getScore100(s) {
+    if (s.pushPost === null || s.pushPost === undefined) return 0;
+    return (getTotal(s, 'post') / 50) * 100;
+}
+
+function getImpNum(s) {
+    if (s.pushPost === null || s.pushPost === undefined) return 0;
+    return getTotal(s, 'post') - getTotal(s, 'pre');
+}
+
+function getImpPct(s) {
+    const pre = getTotal(s, 'pre');
+    if (pre === 0) return 0;
+    return ((getTotal(s, 'post') - pre) / pre) * 100;
+}
+
+// =====================================================
+//  CLASS DETAIL MODAL
+// =====================================================
+let currentClassId = null;
+let importedStudents = [];
+
+function openClassDetail(classId) {
+    currentClassId = classId;
+    const cls = appData.classes.find(c => c.id === classId);
+    document.getElementById('class-detail-title').textContent = `📚 ${cls.name} (${cls.year})`;
+
+    // Reset tabs
+    document.querySelectorAll('#modal-class-detail .tab-content').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('#modal-class-detail .tab-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById('students-tab').classList.add('active');
+    document.querySelectorAll('#modal-class-detail .tab-btn')[0].classList.add('active');
+
+    renderClassStudents(cls);
+    openModal('modal-class-detail');
+}
+
+function renderClassStudents(cls) {
+    const tbody = document.getElementById('class-students-tbody');
+    if (cls.students.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="15" style="text-align:center; padding:30px; color:var(--gray-600);">No students yet. Add students or import from Excel.</td></tr>`;
+        return;
+    }
+
+    tbody.innerHTML = cls.students.map((s, idx) => {
+        const totalPre = getTotal(s, 'pre');
+        const totalPost = getTotal(s, 'post');
+        const score100 = getScore100(s);
+        const impNum = getImpNum(s);
+        const impPct = getImpPct(s);
+        const hasPost = s.pushPost !== null && s.pushPost !== undefined;
+        const hasPre = s.pushPre !== null && s.pushPre !== undefined;
+
+        return `<tr>
+            <td>${idx + 1}</td>
+            <td><span class="badge badge-blue">${s.studentId}</span></td>
+            <td><strong>${s.name}</strong></td>
+            <td>${hasPre ? s.pushPre : '-'}</td>
+            <td>${hasPre ? s.sitPre : '-'}</td>
+            <td>${hasPre ? s.squatPre : '-'}</td>
+            <td><strong>${hasPre ? totalPre : '-'}</strong></td>
+            <td>${hasPost ? s.pushPost : '-'}</td>
+            <td>${hasPost ? s.sitPost : '-'}</td>
+            <td>${hasPost ? s.squatPost : '-'}</td>
+            <td><strong>${hasPost ? totalPost : '-'}</strong></td>
+            <td>${hasPost ? score100.toFixed(1) : '-'}</td>
+            <td class="${impNum > 0 ? 'imp-positive' : impNum < 0 ? 'imp-negative' : 'imp-neutral'}">${hasPost ? (impNum > 0 ? '+' : '') + impNum.toFixed(1) : '-'}</td>
+            <td class="${impPct > 0 ? 'imp-positive' : impPct < 0 ? 'imp-negative' : 'imp-neutral'}">${hasPost ? (impPct > 0 ? '+' : '') + impPct.toFixed(1) + '%' : '-'}</td>
+            <td>
+                <div style="display:flex; gap:5px;">
+                    <button class="btn btn-primary btn-sm" onclick="openEditScores(${cls.id}, '${s.studentId}')">✏️</button>
+                    <button class="btn btn-danger btn-sm" onclick="deleteStudent(${cls.id}, '${s.studentId}')">🗑️</button>
+                </div>
+            </td>
+        </tr>`;
+    }).join('');
+}
+
+function filterModalStudents() {
+    const cls = appData.classes.find(c => c.id === currentClassId);
+    const q = document.getElementById('modal-search').value.toLowerCase();
+    const filtered = cls.students.filter(s => s.name.toLowerCase().includes(q) || s.studentId.includes(q));
+    renderFilteredStudents(filtered, cls.id);
+}
+
+function renderFilteredStudents(students, classId) {
+    const tbody = document.getElementById('class-students-tbody');
+    if (students.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="15" style="text-align:center; padding:20px;">No results found.</td></tr>`;
+        return;
+    }
+    const cls = appData.classes.find(c => c.id === classId);
+    const tempCls = { ...cls, students };
+    renderClassStudents(tempCls);
+}
+
+function openAddStudentForm() {
+    const form = document.getElementById('add-student-form');
+    form.style.display = form.style.display === 'none' ? 'block' : 'none';
+}
+
+function addSingleStudent() {
+    const name = document.getElementById('new-student-name').value.trim();
+    const sid = document.getElementById('new-student-id').value.trim();
+    if (!name || !sid) { alert('Please enter both name and ID.'); return; }
+
+    const cls = appData.classes.find(c => c.id === currentClassId);
+    const exists = cls.students.find(s => s.studentId === sid);
+    if (exists) { alert('Student ID already exists in this class.'); return; }
+
+    cls.students.push({
+        studentId: sid,
+        name: name,
+        pushPre: null, sitPre: null, squatPre: null,
+        pushPost: null, sitPost: null, squatPost: null
+    });
+
+    saveData();
+    document.getElementById('new-student-name').value = '';
+    document.getElementById('new-student-id').value = '';
+    document.getElementById('add-student-form').style.display = 'none';
+    renderClassStudents(cls);
+    updateDashboard();
+}
+
+function deleteStudent(classId, studentId) {
+    if (!confirm('Delete this student?')) return;
+    const cls = appData.classes.find(c => c.id === classId);
+    cls.students = cls.students.filter(s => s.studentId !== studentId);
+    saveData();
+    renderClassStudents(cls);
+    updateDashboard();
+}
+
+// =====================================================
+//  EXCEL IMPORT
+// =====================================================
+function handleExcelImport(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        try {
+            const data = new Uint8Array(e.target.result);
+            const workbook = XLSX.read(data, { type: 'array' });
+            const sheet = workbook.Sheets[workbook.SheetNames[0]];
+            const json = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+
+            importedStudents = [];
+            const cls = appData.classes.find(c => c.id === currentClassId);
+            const preview = [];
+
+            // Skip row 0 (header)
+            for (let i = 1; i < json.length; i++) {
+                const row = json[i];
+                const name = row[0] ? String(row[0]).trim() : '';
+                const sid = row[1] ? String(row[1]).trim() : '';
+                if (!name && !sid) continue;
+
+                const duplicate = cls.students.find(s => s.studentId === sid);
+                preview.push({ name, sid, status: duplicate ? 'Duplicate ID' : 'New' });
+                if (!duplicate && name && sid) {
+                    importedStudents.push({ name, sid });
+                }
+            }
+
+            const tbody = document.getElementById('import-preview-tbody');
+            tbody.innerHTML = preview.map((p, i) => `
+                <tr>
+                    <td>${i + 1}</td>
+                    <td>${p.name || '—'}</td>
+                    <td>${p.sid || '—'}</td>
+                    <td><span class="badge ${p.status === 'New' ? 'badge-green' : 'badge-red'}">${p.status}</span></td>
+                </tr>`).join('');
+
+            document.getElementById('import-success-msg').textContent =
+                `✅ Found ${preview.length} rows. ${importedStudents.length} new students ready to import.`;
+            document.getElementById('import-preview').style.display = 'block';
+        } catch (err) {
+            alert('Error reading file. Make sure it\'s a valid Excel file.');
+        }
+    };
+    reader.readAsArrayBuffer(file);
+    event.target.value = '';
+}
+
+function confirmImport() {
+    const cls = appData.classes.find(c => c.id === currentClassId);
+    importedStudents.forEach(s => {
+        cls.students.push({
+            studentId: s.sid,
+            name: s.name,
+            pushPre: null, sitPre: null, squatPre: null,
+            pushPost: null, sitPost: null, squatPost: null
+        });
+    });
+    saveData();
+    importedStudents = [];
+    document.getElementById('import-preview').style.display = 'none';
+    renderClassStudents(cls);
+    updateDashboard();
+
+    // Switch to students tab
+    showClassTabDirect('students-tab');
+    alert(`✅ ${cls.students.length} total students now in class.`);
+}
+
+function showClassTabDirect(tabId) {
+    document.querySelectorAll('#modal-class-detail .tab-content').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('#modal-class-detail .tab-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById(tabId).classList.add('active');
+    document.querySelectorAll('#modal-class-detail .tab-btn')[0].classList.add('active');
+}
+
+function cancelImport() {
+    importedStudents = [];
+    document.getElementById('import-preview').style.display = 'none';
+}
+
+// Drag and drop
+const dropZone = document.getElementById('import-drop-zone');
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+dropZone.addEventListener('drop', e => {
+    e.preventDefault();
+    dropZone.classList.remove('drag-over');
+    const file = e.dataTransfer.files[0];
+    if (file) {
+        const fakeEvent = { target: { files: [file], value: '' } };
+        handleExcelImport(fakeEvent);
+    }
+});
+
+// =====================================================
+//  EDIT STUDENT SCORES
+// =====================================================
+function openEditScores(classId, studentId) {
+    const cls = appData.classes.find(c => c.id === classId);
+    const s = cls.students.find(st => st.studentId === studentId);
+
+    document.getElementById('edit-class-id').value = classId;
+    document.getElementById('edit-student-id-hidden').value = studentId;
+    document.getElementById('edit-student-title').textContent = `✏️ ${s.name} (${s.studentId})`;
+
+    document.getElementById('edit-push-pre').value = s.pushPre !== null ? s.pushPre : '';
+    document.getElementById('edit-sit-pre').value = s.sitPre !== null ? s.sitPre : '';
+    document.getElementById('edit-squat-pre').value = s.squatPre !== null ? s.squatPre : '';
+    document.getElementById('edit-push-post').value = s.pushPost !== null ? s.pushPost : '';
+    document.getElementById('edit-sit-post').value = s.sitPost !== null ? s.sitPost : '';
+    document.getElementById('edit-squat-post').value = s.squatPost !== null ? s.squatPost : '';
+
+    updateTotals();
+    openModal('modal-edit-scores');
+}
+
+function updateTotals() {
+    const pushPre = parseFloat(document.getElementById('edit-push-pre').value) || 0;
+    const sitPre = parseFloat(document.getElementById('edit-sit-pre').value) || 0;
+    const squatPre = parseFloat(document.getElementById('edit-squat-pre').value) || 0;
+    const totalPre = pushPre + sitPre + squatPre;
+
+    const pushPost = parseFloat(document.getElementById('edit-push-post').value) || 0;
+    const sitPost = parseFloat(document.getElementById('edit-sit-post').value) || 0;
+    const squatPost = parseFloat(document.getElementById('edit-squat-post').value) || 0;
+    const totalPost = pushPost + sitPost + squatPost;
+
+    const score100 = (totalPost / 50) * 100;
+    const impNum = totalPost - totalPre;
+    const impPct = totalPre > 0 ? ((totalPost - totalPre) / totalPre) * 100 : 0;
+
+    document.getElementById('edit-total-pre').textContent = totalPre;
+    document.getElementById('edit-total-post').textContent = totalPost;
+    document.getElementById('edit-score100').textContent = score100.toFixed(1);
+    document.getElementById('edit-imp-num').textContent = (impNum > 0 ? '+' : '') + impNum.toFixed(1);
+    document.getElementById('edit-imp-pct').textContent = (impPct > 0 ? '+' : '') + impPct.toFixed(1) + '%';
+}
+
+function saveStudentScores() {
+    const classId = parseInt(document.getElementById('edit-class-id').value);
+    const studentId = document.getElementById('edit-student-id-hidden').value;
+    const cls = appData.classes.find(c => c.id === classId);
+    const s = cls.students.find(st => st.studentId === studentId);
+
+    const pushPre = document.getElementById('edit-push-pre').value;
+    const sitPre = document.getElementById('edit-sit-pre').value;
+    const squatPre = document.getElementById('edit-squat-pre').value;
+    const pushPost = document.getElementById('edit-push-post').value;
+    const sitPost = document.getElementById('edit-sit-post').value;
+    const squatPost = document.getElementById('edit-squat-post').value;
+
+    if (pushPre !== '') s.pushPre = parseFloat(pushPre);
+    if (sitPre !== '') s.sitPre = parseFloat(sitPre);
+    if (squatPre !== '') s.squatPre = parseFloat(squatPre);
+    if (pushPost !== '') s.pushPost = parseFloat(pushPost);
+    if (sitPost !== '') s.sitPost = parseFloat(sitPost);
+    if (squatPost !== '') s.squatPost = parseFloat(squatPost);
+
+    saveData();
+    closeModal('modal-edit-scores');
+    renderClassStudents(cls);
+    updateDashboard();
+}
+
+// =====================================================
+//  DASHBOARD
+// =====================================================
+let dashChart1 = null;
+let dashChart2 = null;
+
+function updateDashboard() {
+    const allStudents = appData.classes.flatMap(c => c.students);
+    const withPost = allStudents.filter(s => s.pushPost !== null && s.pushPost !== undefined);
+
+    document.getElementById('stat-classes').textContent = appData.classes.length;
+    document.getElementById('stat-students').textContent = allStudents.length;
+    document.getElementById('stat-avg-imp').textContent =
+        withPost.length > 0 ? (withPost.reduce((a, s) => a + getImpPct(s), 0) / withPost.length).toFixed(1) + '%' : '0%';
+    document.getElementById('stat-avg-score').textContent =
+        withPost.length > 0 ? (withPost.reduce((a, s) => a + getScore100(s), 0) / withPost.length).toFixed(1) : '0';
+
+    // Dashboard table
+    const tbody = document.getElementById('dashboard-table-body');
+    if (appData.classes.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="9" style="text-align:center; padding:30px; color:var(--gray-600);">No classes yet. Add a class to get started!</td></tr>`;
+    } else {
+        tbody.innerHTML = appData.classes.map(cls => {
+            const stats = getClassStats(cls);
+            const badge = stats.avgImpPct > 10 ? 'badge-green' : stats.avgImpPct > 0 ? 'badge-orange' : 'badge-red';
+            const label = stats.avgImpPct > 10 ? '🔥 Excellent' : stats.avgImpPct > 0 ? '✅ Good' : '⚠️ Review';
+            return `<tr>
+                <td><strong>${cls.name}</strong></td>
+                <td>Grade ${cls.grade}</td>
+                <td>${cls.students.length}</td>
+                <td>${stats.avgPreTotal.toFixed(1)}</td>
+                <td>${stats.avgPostTotal.toFixed(1)}</td>
+                <td>${stats.avgScore100.toFixed(1)}</td>
+                <td class="${stats.avgImpNum >= 0 ? 'imp-positive' : 'imp-negative'}">${stats.avgImpNum > 0 ? '+' : ''}${stats.avgImpNum.toFixed(1)}</td>
+                <td class="${stats.avgImpPct >= 0 ? 'imp-positive' : 'imp-negative'}">${stats.avgImpPct > 0 ? '+' : ''}${stats.avgImpPct.toFixed(1)}%</td>
+                <td><span class="badge ${badge}">${label}</span></td>
+            </tr>`;
+        }).join('');
+    }
+
+    updateDashCharts();
+}
+
+function updateDashCharts() {
+    const labels = appData.classes.map(c => c.name);
+    const impData = appData.classes.map(c => getClassStats(c).avgImpPct);
+    const scoreData = appData.classes.map(c => getClassStats(c).avgScore100);
+
+    if (dashChart1) dashChart1.destroy();
+    if (dashChart2) dashChart2.destroy();
+
+    const ctx1 = document.getElementById('dashChart1').getContext('2d');
+    dashChart1 = new Chart(ctx1, {
+        type: currentDashChartType1 || 'bar',
+        data: {
+            labels,
+            datasets: [{
+                label: 'Avg Improvement %',
+                data: impData,
+                backgroundColor: 'rgba(26, 58, 107, 0.7)',
+                borderColor: '#1a3a6b',
+                borderWidth: 2,
+                tension: 0.4,
+                fill: true
+            }]
+        },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+    });
+
+    const ctx2 = document.getElementById('dashChart2').getContext('2d');
+    dashChart2 = new Chart(ctx2, {
+        type: currentDashChartType2 || 'bar',
+        data: {
+            labels,
+            datasets: [{
+                label: 'Avg Score / 100',
+                data: scoreData,
+                backgroundColor: 'rgba(74, 144, 217, 0.7)',
+                borderColor: '#4a90d9',
+                borderWidth: 2,
+                tension: 0.4,
+                fill: true
+            }]
+        },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+    });
+}
+
+let currentDashChartType1 = 'bar';
+let currentDashChartType2 = 'bar';
+
+function toggleDashChart(type) {
+    currentDashChartType1 = type;
+    updateDashCharts();
+}
+function toggleDashChart2(type) {
+    currentDashChartType2 = type;
+    updateDashCharts();
+}
+
+// =====================================================
+//  STUDENTS PAGE
+// =====================================================
+function updateStudentsPage() {
+    const select = document.getElementById('filter-class');
+    select.innerHTML = '<option value="">All Classes</option>' +
+        appData.classes.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+    filterStudents();
+}
+
+function filterStudents() {
+    const classFilter = document.getElementById('filter-class').value;
+    const q = document.getElementById('student-search').value.toLowerCase();
+
+    let students = [];
+    appData.classes.forEach(cls => {
+        if (!classFilter || cls.id == classFilter) {
+            cls.students.forEach(s => students.push({ ...s, className: cls.name, classId: cls.id }));
+        }
+    });
+
+    if (q) students = students.filter(s => s.name.toLowerCase().includes(q) || s.studentId.includes(q));
+
+    const tbody = document.getElementById('students-table-body');
+    if (students.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="16" style="text-align:center; padding:30px; color:var(--gray-600);">No students found.</td></tr>`;
+        return;
+    }
+
+    tbody.innerHTML = students.map((s, idx) => {
+        const totalPre = getTotal(s, 'pre');
+        const totalPost = getTotal(s, 'post');
+        const score100 = getScore100(s);
+        const impNum = getImpNum(s);
+        const impPct = getImpPct(s);
+        const hasPost = s.pushPost !== null && s.pushPost !== undefined;
+        const hasPre = s.pushPre !== null && s.pushPre !== undefined;
+
+        return `<tr>
+            <td>${idx + 1}</td>
+            <td><span class="badge badge-blue">${s.studentId}</span></td>
+            <td><strong>${s.name}</strong></td>
+            <td><span class="badge badge-blue">${s.className}</span></td>
+            <td>${hasPre ? s.pushPre : '-'}</td>
+            <td>${hasPre ? s.sitPre : '-'}</td>
+            <td>${hasPre ? s.squatPre : '-'}</td>
+            <td><strong>${hasPre ? totalPre : '-'}</strong></td>
+            <td>${hasPost ? s.pushPost : '-'}</td>
+            <td>${hasPost ? s.sitPost : '-'}</td>
+            <td>${hasPost ? s.squatPost : '-'}</td>
+            <td><strong>${hasPost ? totalPost : '-'}</strong></td>
+            <td>${hasPost ? score100.toFixed(1) : '-'}</td>
+            <td class="${impNum >= 0 ? 'imp-positive' : 'imp-negative'}">${hasPost ? (impNum > 0 ? '+' : '') + impNum.toFixed(1) : '-'}</td>
+            <td class="${impPct >= 0 ? 'imp-positive' : 'imp-negative'}">${hasPost ? (impPct > 0 ? '+' : '') + impPct.toFixed(1) + '%' : '-'}</td>
+            <td>
+                <button class="btn btn-primary btn-sm" onclick="openEditScores(${s.classId}, '${s.studentId}')">✏️ Edit</button>
+            </td>
+        </tr>`;
+    }).join('');
+}
+
+// =====================================================
+//  REPORTS
+// =====================================================
+let overallChart = null;
+let classChart = null;
+let compChart = null;
+let currentOverallType = 'bar';
+let currentOverallData = 'improvement';
+let currentClassChartType = 'bar';
+let currentCompType = 'bar';
+
+function updateReports() {
+    // Populate class select
+    const sel = document.getElementById('report-class-select');
+    sel.innerHTML = '<option value="">Select a Class...</option>' +
+        appData.classes.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+
+    const allStudents = appData.classes.flatMap(c => c.students);
+    const withPost = allStudents.filter(s => s.pushPost !== null && s.pushPost !== undefined);
+
+    document.getElementById('rep-total-students').textContent = allStudents.length;
+    document.getElementById('rep-avg-imp').textContent =
+        withPost.length > 0 ? (withPost.reduce((a, s) => a + getImpNum(s), 0) / withPost.length).toFixed(1) : '0';
+    document.getElementById('rep-avg-imp-pct').textContent =
+        withPost.length > 0 ? (withPost.reduce((a, s) => a + getImpPct(s), 0) / withPost.length).toFixed(1) + '%' : '0%';
+    document.getElementById('rep-avg-score100').textContent =
+        withPost.length > 0 ? (withPost.reduce((a, s) => a + getScore100(s), 0) / withPost.length).toFixed(1) : '0';
+
+    renderOverallChart();
+}
+
+function renderOverallChart() {
+    const labels = appData.classes.map(c => c.name);
+    let datasets = [];
+
+    if (currentOverallData === 'improvement') {
+        datasets = [{
+            label: 'Avg Improvement %',
+            data: appData.classes.map(c => getClassStats(c).avgImpPct),
+            backgroundColor: 'rgba(26,58,107,0.7)', borderColor: '#1a3a6b', borderWidth: 2, tension: 0.4
+        }];
+    } else if (currentOverallData === 'score100') {
+        datasets = [{
+            label: 'Avg Score / 100',
+            data: appData.classes.map(c => getClassStats(c).avgScore100),
+            backgroundColor: 'rgba(74,144,217,0.7)', borderColor: '#4a90d9', borderWidth: 2, tension: 0.4
+        }];
+    } else {
+        datasets = [
+            {
+                label: 'Avg Pre Total',
+                data: appData.classes.map(c => getClassStats(c).avgPreTotal),
+                backgroundColor: 'rgba(245,158,11,0.7)', borderColor: '#f59e0b', borderWidth: 2, tension: 0.4
+            },
+            {
+                label: 'Avg Post Total',
+                data: appData.classes.map(c => getClassStats(c).avgPostTotal),
+                backgroundColor: 'rgba(16,185,129,0.7)', borderColor: '#10b981', borderWidth: 2, tension: 0.4
+            }
+        ];
+    }
+
+    if (overallChart) overallChart.destroy();
+    const ctx = document.getElementById('overallChart').getContext('2d');
+    overallChart = new Chart(ctx, {
+        type: currentOverallType,
+        data: { labels, datasets },
+        options: { responsive: true, maintainAspectRatio: false }
+    });
+}
+
+function toggleOverallChart(type) { currentOverallType = type; renderOverallChart(); }
+function setOverallChartData(data) { currentOverallData = data; renderOverallChart(); }
+
+function updateClassReport() {
+    const classId = parseInt(document.getElementById('report-class-select').value);
+    if (!classId) return;
+
+    const cls = appData.classes.find(c => c.id === classId);
+    const stats = getClassStats(cls);
+    const content = document.getElementById('class-report-content');
+
+    content.innerHTML = `
+        <div class="stats-grid">
+            <div class="stat-card"><div class="stat-label">Total Students</div><div class="stat-value">${cls.students.length}</div></div>
+            <div class="stat-card green"><div class="stat-label">Avg Pre Total</div><div class="stat-value">${stats.avgPreTotal.toFixed(1)}</div></div>
+            <div class="stat-card orange"><div class="stat-label">Avg Post Total</div><div class="stat-value">${stats.avgPostTotal.toFixed(1)}</div></div>
+            <div class="stat-card"><div class="stat-label">Avg Score/100</div><div class="stat-value">${stats.avgScore100.toFixed(1)}</div></div>
+            <div class="stat-card green"><div class="stat-label">Avg Imp (pts)</div><div class="stat-value">${stats.avgImpNum.toFixed(1)}</div></div>
+            <div class="stat-card orange"><div class="stat-label">Avg Imp %</div><div class="stat-value">${stats.avgImpPct.toFixed(1)}%</div></div>
+        </div>
+        <div class="chart-toggle">
+            <button class="btn btn-sm btn-primary" onclick="toggleClassReportChart('bar')">📊 Bar</button>
+            <button class="btn btn-sm btn-outline" onclick="toggleClassReportChart('line')">📈 Line</button>
+        </div>
+        <div class="chart-container" style="height:350px;"><canvas id="classReportChart"></canvas></div>
+        <div class="table-container" style="margin-top:20px;">
+            <table>
+                <thead><tr><th>#</th><th>ID</th><th>Name</th><th>Total Pre</th><th>Total Post</th><th>Score/100</th><th>Imp (pts)</th><th>Imp %</th></tr></thead>
+                <tbody>
+                ${cls.students.map((s, i) => {
+                    const tp = getTotal(s, 'pre'), tpost = getTotal(s, 'post');
+                    const sc = getScore100(s), imp = getImpNum(s), ipp = getImpPct(s);
+                    const hasPost = s.pushPost !== null && s.pushPost !== undefined;
+                    return `<tr>
+                        <td>${i+1}</td>
+                        <td>${s.studentId}</td>
+                        <td>${s.name}</td>
+                        <td>${tp}</td>
+                        <td>${hasPost ? tpost : '-'}</td>
+                        <td>${hasPost ? sc.toFixed(1) : '-'}</td>
+                        <td class="${imp >= 0 ? 'imp-positive' : 'imp-negative'}">${hasPost ? (imp > 0 ? '+' : '') + imp.toFixed(1) : '-'}</td>
+                        <td class="${ipp >= 0 ? 'imp-positive' : 'imp-negative'}">${hasPost ? (ipp > 0 ? '+' : '') + ipp.toFixed(1) + '%' : '-'}</td>
+                    </tr>`;
+                }).join('')}
+                </tbody>
+            </table>
+        </div>`;
+
+    renderClassReportChart(cls);
+}
+
+let classReportChart = null;
+let currentClassReportType = 'bar';
+
+function renderClassReportChart(cls) {
+    const labels = cls.students.map(s => s.name);
+    const impData = cls.students.map(s => getImpPct(s));
+
+    if (classReportChart) classReportChart.destroy();
+    const ctx = document.getElementById('classReportChart');
+    if (!ctx) return;
+    classReportChart = new Chart(ctx.getContext('2d'), {
+        type: currentClassReportType,
+        data: {
+            labels,
+            datasets: [{
+                label: 'Improvement %',
+                data: impData,
+                backgroundColor: impData.map(v => v >= 0 ? 'rgba(16,185,129,0.7)' : 'rgba(239,68,68,0.7)'),
+                borderColor: impData.map(v => v >= 0 ? '#10b981' : '#ef4444'),
+                borderWidth: 2,
+                tension: 0.4
+            }]
+        },
+        options: { responsive: true, maintainAspectRatio: false }
+    });
+}
+
+function toggleClassReportChart(type) {
+    currentClassReportType = type;
+    const classId = parseInt(document.getElementById('report-class-select').value);
+    if (!classId) return;
+    const cls = appData.classes.find(c => c.id === classId);
+    renderClassReportChart(cls);
+}
+
+function updateComparisonChart() {
+    const labels = appData.classes.map(c => c.name);
+    if (compChart) compChart.destroy();
+    const ctx = document.getElementById('comparisonChart').getContext('2d');
+    compChart = new Chart(ctx, {
+        type: currentCompType,
+        data: {
+            labels,
+            datasets: [
+                {
+                    label: 'Avg Pre Total',
+                    data: appData.classes.map(c => getClassStats(c).avgPreTotal),
+                    backgroundColor: 'rgba(245,158,11,0.7)', borderColor: '#f59e0b', borderWidth: 2, tension: 0.4
+                },
+                {
+                    label: 'Avg Post Total',
+                    data: appData.classes.map(c => getClassStats(c).avgPostTotal),
+                    backgroundColor: 'rgba(16,185,129,0.7)', borderColor: '#10b981', borderWidth: 2, tension: 0.4
+                },
+                {
+                    label: 'Avg Score/100',
+                    data: appData.classes.map(c => getClassStats(c).avgScore100),
+                    backgroundColor: 'rgba(26,58,107,0.7)', borderColor: '#1a3a6b', borderWidth: 2, tension: 0.4
+                }
+            ]
+        },
+        options: { responsive: true, maintainAspectRatio: false }
+    });
+}
+
+function toggleCompChart(type) { currentCompType = type; updateComparisonChart(); }
+
+// =====================================================
+//  CLASS STATS TAB
+// =====================================================
+function updateClassStatsTab() {
+    const cls = appData.classes.find(c => c.id === currentClassId);
+    if (!cls) return;
+    const stats = getClassStats(cls);
+
+    document.getElementById('class-stats-grid').innerHTML = `
+        <div class="stat-card"><div class="stat-label">Total Students</div><div class="stat-value">${cls.students.length}</div></div>
+        <div class="stat-card green"><div class="stat-label">Avg Score/100</div><div class="stat-value">${stats.avgScore100.toFixed(1)}</div></div>
+        <div class="stat-card orange"><div class="stat-label">Avg Improvement</div><div class="stat-value">${stats.avgImpNum.toFixed(1)} pts</div></div>
+        <div class="stat-card"><div class="stat-label">Avg Improvement %</div><div class="stat-value">${stats.avgImpPct.toFixed(1)}%</div></div>
+    `;
+
+    renderClassChartInternal(cls);
+}
+
+function renderClassChartInternal(cls) {
+    if (classChart) classChart.destroy();
+    const ctx = document.getElementById('classChart').getContext('2d');
+    const labels = cls.students.map(s => s.name);
+    const impData = cls.students.map(s => getImpPct(s));
+
+    classChart = new Chart(ctx, {
+        type: currentClassChartType,
+        data: {
+            labels,
+            datasets: [{
+                label: 'Improvement %',
+                data: impData,
+                backgroundColor: impData.map(v => v >= 0 ? 'rgba(16,185,129,0.7)' : 'rgba(239,68,68,0.7)'),
+                borderColor: impData.map(v => v >= 0 ? '#10b981' : '#ef4444'),
+                borderWidth: 2,
+                tension: 0.4
+            }]
+        },
+        options: { responsive: true, maintainAspectRatio: false }
+    });
+}
+
+function toggleClassChart(type) {
+    currentClassChartType = type;
+    const cls = appData.classes.find(c => c.id === currentClassId);
+    if (cls) renderClassChartInternal(cls);
+}
+
+// =====================================================
+//  EXPORT
+// =====================================================
+function updateExportPage() {
+    const allStudents = appData.classes.flatMap(c => c.students);
+    document.getElementById('exp-all-students').textContent = allStudents.length;
+    document.getElementById('exp-all-classes').textContent = appData.classes.length;
+
+    const expClassSel = document.getElementById('export-class-select');
+    const expStudentClass = document.getElementById('export-student-class');
+
+    const options = '<option value="">Choose...</option>' +
+        appData.classes.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+    expClassSel.innerHTML = options;
+    expStudentClass.innerHTML = options;
+}
+
+function populateExportStudents() {
+    const classId = parseInt(document.getElementById('export-student-class').value);
+    const sel = document.getElementById('export-student-select');
+    if (!classId) { sel.innerHTML = '<option value="">Choose student...</option>'; return; }
+    const cls = appData.classes.find(c => c.id === classId);
+    sel.innerHTML = '<option value="">Choose student...</option>' +
+        cls.students.map(s => `<option value="${s.studentId}">${s.name} (${s.studentId})</option>`).join('');
+}
+
+function buildStudentRow(s, className) {
+    const totalPre = getTotal(s, 'pre');
+    const totalPost = getTotal(s, 'post');
+    const score100 = getScore100(s);
+    const impNum = getImpNum(s);
+    const impPct = getImpPct(s);
+    const hasPost = s.pushPost !== null && s.pushPost !== undefined;
+
+    return [
+        s.studentId, s.name, className,
+        s.pushPre ?? '', s.sitPre ?? '', s.squatPre ?? '', totalPre,
+        hasPost ? s.pushPost : '', hasPost ? s.sitPost : '', hasPost ? s.squatPost : '',
+        hasPost ? totalPost : '',
+        hasPost ? parseFloat(score100.toFixed(2)) : '',
+        hasPost ? parseFloat(impNum.toFixed(2)) : '',
+        hasPost ? parseFloat(impPct.toFixed(2)) : ''
+    ];
+}
+
+function getExcelHeaders() {
+    return [
+        'Student ID', 'Name', 'Class',
+        'Push-ups (Pre)', 'Sit-ups (Pre)', 'Squats (Pre)', 'Total (Pre)',
+        'Push-ups (Post)', 'Sit-ups (Post)', 'Squats (Post)', 'Total (Post)',
+        'Score / 100', 'Improvement (pts)', 'Improvement (%)'
+    ];
+}
+
+function exportAll() {
+    const wb = XLSX.utils.book_new();
+    const rows = [getExcelHeaders()];
+    appData.classes.forEach(cls => {
+        cls.students.forEach(s => rows.push(buildStudentRow(s, cls.name)));
+    });
+    const ws = XLSX.utils.aoa_to_sheet(rows);
+    styleSheet(ws);
+    XLSX.utils.book_append_sheet(wb, ws, 'All Students');
+    addSummarySheet(wb);
+    XLSX.writeFile(wb, 'IAT_PE_All_Students.xlsx');
+}
+
+function exportByClass() {
+    const classId = parseInt(document.getElementById('export-class-select').value);
+    if (!classId) { alert('Please select a class.'); return; }
+    const cls = appData.classes.find(c => c.id === classId);
+    const wb = XLSX.utils.book_new();
+    const rows = [getExcelHeaders()];
+    cls.students.forEach(s => rows.push(buildStudentRow(s, cls.name)));
+    const ws = XLSX.utils.aoa_to_sheet(rows);
+    styleSheet(ws);
+    XLSX.utils.book_append_sheet(wb, ws, cls.name);
+    XLSX.writeFile(wb, `IAT_PE_${cls.name.replace(/ /g, '_')}.xlsx`);
+}
+
+function exportStudent() {
+    const classId = parseInt(document.getElementById('export-student-class').value);
+    const studentId = document.getElementById('export-student-select').value;
+    if (!classId || !studentId) { alert('Please select a class and student.'); return; }
+
+    const cls = appData.classes.find(c => c.id === classId);
+    const s = cls.students.find(st => st.studentId === studentId);
+    const wb = XLSX.utils.book_new();
+
+    const totalPre = getTotal(s, 'pre');
+    const totalPost = getTotal(s, 'post');
+    const score100 = getScore100(s);
+    const impNum = getImpNum(s);
+    const impPct = getImpPct(s);
+    const hasPost = s.pushPost !== null && s.pushPost !== undefined;
+
+    const rows = [
+        ['IAT – Institute of Applied Technology - AQB'],
+        ['PE Performance Report - Individual Student'],
+        ['Built by: Yousef Ali Ababneh'],
+        [],
+        ['Student Information'],
+        ['Student ID', s.studentId],
+        ['Name', s.name],
+        ['Class', cls.name],
+        ['Academic Year', cls.year],
+        [],
+        ['PRE-TEST Results'],
+        ['Exercise', 'Score', 'Max Score'],
+        ['Push-ups', s.pushPre ?? 'N/A', 10],
+        ['Sit-ups', s.sitPre ?? 'N/A', 30],
+        ['Squats', s.squatPre ?? 'N/A', 10],
+        ['TOTAL', totalPre, 50],
+        [],
+        ['POST-TEST Results'],
+        ['Exercise', 'Score', 'Max Score'],
+        ['Push-ups', hasPost ? s.pushPost : 'N/A', 10],
+        ['Sit-ups', hasPost ? s.sitPost : 'N/A', 30],
+        ['Squats', hasPost ? s.squatPost : 'N/A', 10],
+        ['TOTAL', hasPost ? totalPost : 'N/A', 50],
+        [],
+        ['Performance Summary'],
+        ['Score / 100', hasPost ? score100.toFixed(2) : 'N/A'],
+        ['Improvement (pts)', hasPost ? impNum.toFixed(2) : 'N/A'],
+        ['Improvement (%)', hasPost ? impPct.toFixed(2) + '%' : 'N/A']
+    ];
+
+    const ws = XLSX.utils.aoa_to_sheet(rows);
+    XLSX.utils.book_append_sheet(wb, ws, 'Student Report');
+    XLSX.writeFile(wb, `IAT_PE_Student_${s.name.replace(/ /g, '_')}.xlsx`);
+}
+
+function exportSummary() {
+    const wb = XLSX.utils.book_new();
+    const rows = [
+        ['IAT – Institute of Applied Technology - AQB'],
+        ['PE Performance Summary Report'],
+        ['Built by: Yousef Ali Ababneh'],
+        [],
+        ['Class', 'Grade', 'Total Students', 'Students w/ Pre', 'Students w/ Post',
+         'Avg Pre Total', 'Avg Post Total', 'Avg Score/100', 'Avg Improvement (pts)', 'Avg Improvement (%)']
+    ];
+
+    appData.classes.forEach(cls => {
+        const stats = getClassStats(cls);
+        rows.push([
+            cls.name, `Grade ${cls.grade}`, cls.students.length,
+            stats.completedPre, stats.completedPost,
+            parseFloat(stats.avgPreTotal.toFixed(2)),
+            parseFloat(stats.avgPostTotal.toFixed(2)),
+            parseFloat(stats.avgScore100.toFixed(2)),
+            parseFloat(stats.avgImpNum.toFixed(2)),
+            parseFloat(stats.avgImpPct.toFixed(2))
+        ]);
+    });
+
+    // Overall row
+    const allStudents = appData.classes.flatMap(c => c.students);
+    const withPost = allStudents.filter(s => s.pushPost !== null && s.pushPost !== undefined);
+    rows.push([]);
+    rows.push([
+        'OVERALL', 'All', allStudents.length,
+        allStudents.filter(s => s.pushPre !== null).length,
+        withPost.length,
+        parseFloat((withPost.length > 0 ? withPost.reduce((a,s) => a + getTotal(s,'pre'),0)/withPost.length : 0).toFixed(2)),
+        parseFloat((withPost.length > 0 ? withPost.reduce((a,s) => a + getTotal(s,'post'),0)/withPost.length : 0).toFixed(2)),
+        parseFloat((withPost.length > 0 ? withPost.reduce((a,s) => a + getScore100(s),0)/withPost.length : 0).toFixed(2)),
+        parseFloat((withPost.length > 0 ? withPost.reduce((a,s) => a + getImpNum(s),0)/withPost.length : 0).toFixed(2)),
+        parseFloat((withPost.length > 0 ? withPost.reduce((a,s) => a + getImpPct(s),0)/withPost.length : 0).toFixed(2))
+    ]);
+
+    const ws = XLSX.utils.aoa_to_sheet(rows);
+    XLSX.utils.book_append_sheet(wb, ws, 'Summary');
+    XLSX.writeFile(wb, 'IAT_PE_Summary_Report.xlsx');
+}
+
+function addSummarySheet(wb) {
+    const rows = [
+        ['Class Summary'],
+        ['Class', 'Students', 'Avg Score/100', 'Avg Improvement (pts)', 'Avg Improvement (%)']
+    ];
+    appData.classes.forEach(cls => {
+        const s = getClassStats(cls);
+        rows.push([cls.name, cls.students.length,
+            parseFloat(s.avgScore100.toFixed(2)),
+            parseFloat(s.avgImpNum.toFixed(2)),
+            parseFloat(s.avgImpPct.toFixed(2))]);
+    });
+    const ws = XLSX.utils.aoa_to_sheet(rows);
+    XLSX.utils.book_append_sheet(wb, ws, 'Class Summary');
+}
+
+function styleSheet(ws) {
+    // Auto-width columns
+    const cols = getExcelHeaders().map(() => ({ wch: 18 }));
+    ws['!cols'] = cols;
+}
+
+// =====================================================
+//  INIT
+// =====================================================
+loadData();
+renderClasses();
+updateDashboard();
+
+// Update class name preview on input
+document.getElementById('class-grade').addEventListener('change', updateClassNamePreview);
+document.getElementById('class-section').addEventListener('input', updateClassNamePreview);
+</script>
+</body>
+</html>
